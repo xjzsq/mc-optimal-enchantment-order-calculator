@@ -4,7 +4,7 @@ import { getEnchantmentsForWeapon } from '../data/enchantments';
 import type { Enchantment } from '../data/enchantments';
 import type { EnchantLevel } from '../core/calculator';
 import { toRoman } from '../utils/roman';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type React from 'react';
 
 const { Text } = Typography;
@@ -19,6 +19,8 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
   const [algorithm, setAlgorithm] = useState<'DifficultyFirst' | 'Hamming'>(appState.algorithm);
   const [targetEnchantments, setTargetEnchantments] = useState<EnchantLevel[]>(appState.targetEnchantments);
   const [ignorePenalty, setIgnorePenalty] = useState(appState.ignorePenalty);
+  const [savedLevels, setSavedLevels] = useState<Record<string, number>>({});
+  const inputMouseDown = useRef(false);
 
   const availableEnchantments = getEnchantmentsForWeapon(appState.weaponIndex, appState.edition === 0 ? 0 : 1)
     .filter(e => {
@@ -29,8 +31,13 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
 
   function toggleEnchant(ench: Enchantment, checked: boolean) {
     if (checked) {
-      setTargetEnchantments(prev => [...prev, { enchantmentId: ench.id, level: ench.maxLevel }]);
+      const level = savedLevels[ench.id] ?? ench.maxLevel;
+      setTargetEnchantments(prev => [...prev, { enchantmentId: ench.id, level }]);
     } else {
+      const current = targetEnchantments.find(e => e.enchantmentId === ench.id);
+      if (current) {
+        setSavedLevels(prev => ({ ...prev, [ench.id]: current.level }));
+      }
       setTargetEnchantments(prev => prev.filter(e => e.enchantmentId !== ench.id));
     }
   }
@@ -90,6 +97,11 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
             value={sel.level}
             size="small"
             onClick={e => e.stopPropagation()}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              inputMouseDown.current = true;
+              setTimeout(() => { inputMouseDown.current = false; }, 300);
+            }}
             onChange={val => setLevel(record.id, val ?? 1)}
           />
         );
@@ -134,6 +146,7 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
               const conflicted = !selected && isConflicted(record);
               return {
                 onClick: (e: React.MouseEvent) => {
+                  if (inputMouseDown.current) return;
                   if ((e.target as HTMLElement).closest('.ant-input-number')) return;
                   if (!conflicted) {
                     toggleEnchant(record, !selected);

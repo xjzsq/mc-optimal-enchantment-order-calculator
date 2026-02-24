@@ -63,34 +63,49 @@ export default function Step3({ result, appState, onReset, onBack }: Props) {
     );
   }
 
+  const isJava = appState.edition === 0;
+
   return (
     <div>
       <Title level={4}>附魔步骤（共 {result.steps.length} 步）</Title>
-      {result.steps.map((step, idx) => (
-        <Card
-          key={idx}
-          size="small"
+      {result.tooExpensive && isJava && (
+        <Alert
+          message="过于昂贵！"
+          description="部分步骤的经验花费超过了39级，在Java版中铁砧将无法完成这些操作。请尝试调整附魔组合或减少初始惩罚值。"
+          type="error"
+          showIcon
           style={{ marginBottom: 12 }}
-          title={
-            <Space>
-              <Tag color="orange">第 {idx + 1} 步</Tag>
-              <Text>花费: <Text strong type="danger">{step.cost} 级经验</Text></Text>
-            </Space>
-          }
-        >
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <ItemDisplay item={step.target} label="目标（铁砧左侧）" weaponIndex={appState.weaponIndex} />
-            <div style={{ display: 'flex', alignItems: 'center', padding: '20px 0' }}>
-              <Text style={{ fontSize: 20 }}>+</Text>
+        />
+      )}
+      {result.steps.map((step, idx) => {
+        const stepTooExpensive = isJava && step.cost >= 40;
+        return (
+          <Card
+            key={idx}
+            size="small"
+            style={{ marginBottom: 12, borderColor: stepTooExpensive ? '#ff4d4f' : undefined }}
+            title={
+              <Space>
+                <Tag color={stepTooExpensive ? 'red' : 'orange'}>第 {idx + 1} 步</Tag>
+                <Text>花费: <Text strong type="danger">{step.cost} 级经验</Text></Text>
+                {stepTooExpensive && <Tag color="red">过于昂贵!</Tag>}
+              </Space>
+            }
+          >
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <ItemDisplay item={step.target} label="目标（铁砧左侧）" weaponIndex={appState.weaponIndex} />
+              <div style={{ display: 'flex', alignItems: 'center', padding: '20px 0' }}>
+                <Text style={{ fontSize: 20 }}>+</Text>
+              </div>
+              <ItemDisplay item={step.sacrifice} label="牺牲品（铁砧右侧）" weaponIndex={appState.weaponIndex} />
+              <div style={{ display: 'flex', alignItems: 'center', padding: '20px 0' }}>
+                <Text style={{ fontSize: 20 }}>→</Text>
+              </div>
+              <ItemDisplay item={step.result} label="结果" weaponIndex={appState.weaponIndex} />
             </div>
-            <ItemDisplay item={step.sacrifice} label="牺牲品（铁砧右侧）" weaponIndex={appState.weaponIndex} />
-            <div style={{ display: 'flex', alignItems: 'center', padding: '20px 0' }}>
-              <Text style={{ fontSize: 20 }}>→</Text>
-            </div>
-            <ItemDisplay item={step.result} label="结果" weaponIndex={appState.weaponIndex} />
-          </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
 
       <Divider />
       <Card>

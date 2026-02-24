@@ -24,6 +24,7 @@ export interface ForgeStep {
 export interface CalcResult {
   steps: ForgeStep[];
   totalCost: number;
+  tooExpensive: boolean;
   calcTimeMs?: number;
 }
 
@@ -122,6 +123,12 @@ export function preForge(
   return { result, cost };
 }
 
+/** Forge two items without cost calculation (for simulation in Hamming) */
+function forgeOnly(target: Item, sacrifice: Item, isJava: boolean): Item {
+  const { result } = preForge(target, sacrifice, isJava, false);
+  return result;
+}
+
 let itemCounter = 0;
 function newItemId(): string {
   return `item_${++itemCounter}`;
@@ -163,17 +170,25 @@ function findWeaponIndex(pool: Item[]): number {
   return pool.findIndex(item => !item.isBook);
 }
 
-/** Sort pool: by penalty ascending, then by enchant cost descending for books */
+/**
+ * Sort pool matching reference: penalty ascending, then sacrifice cost descending
+ * for books within the same penalty. Weapon position is preserved (only books swap).
+ */
 function sortPool(pool: Item[]): void {
-  pool.sort((a, b) => {
-    if (a.penalty !== b.penalty) return a.penalty - b.penalty;
-    // Within same penalty: non-book items (weapon) stay in place,
-    // books are sorted by sacrifice cost descending
-    if (a.isBook && b.isBook) {
-      return calcSacrificeCost(b) - calcSacrificeCost(a);
+  // Bubble sort to match reference behavior: only books move, weapon stays in place
+  for (let i = 0; i < pool.length - 1; i++) {
+    for (let j = 0; j < pool.length - 1 - i; j++) {
+      if (pool[j].penalty > pool[j + 1].penalty) {
+        [pool[j], pool[j + 1]] = [pool[j + 1], pool[j]];
+      } else if (
+        pool[j].penalty === pool[j + 1].penalty &&
+        pool[j].isBook &&
+        calcSacrificeCost(pool[j]) < calcSacrificeCost(pool[j + 1])
+      ) {
+        [pool[j], pool[j + 1]] = [pool[j + 1], pool[j]];
+      }
     }
-    return 0;
-  });
+  }
 }
 
 /** Find the range of indices in pool with a given penalty */
@@ -188,14 +203,30 @@ function penaltyRange(pool: Item[], penalty: number): { begin: number; end: numb
   return { begin, end };
 }
 
+/** Hamming weight (number of 1 bits) of a non-negative integer */
+function hammingWeight(n: number): number {
+  let count = 0;
+  while (n > 0) {
+    if (n % 2 === 1) count++;
+    n = Math.floor(n / 2);
+  }
+  return count;
+}
+
+/** Check if any step exceeds 39 levels (Java "Too Expensive" limit) */
+function checkTooExpensive(steps: ForgeStep[], isJava: boolean): boolean {
+  if (!isJava) return false;
+  return steps.some(s => s.cost >= 40);
+}
+
 /**
  * DifficultyFirst algorithm - reference: Dinosaur-MC/BestEnchSeq
  *
  * Key principles:
  * 1. Merge items at the same penalty level first (minimizes penalty costs)
  * 2. Higher-cost items are merged as sacrifices first (when penalty is low)
- * 3. Weapon is ALWAYS the target (left side of anvil)
- * 4. When no same-penalty pairs exist, merge remaining items with weapon as target
+ * 3. Weapon is target when at same penalty level
+ * 4. When no same-penalty pairs exist, merge first two sorted items (books first)
  */
 export function calcDifficultyFirst(
   weapon: Item,
@@ -233,7 +264,6 @@ export function calcDifficultyFirst(
 
       if (w !== -1 && pool[w].penalty === curPenalty) {
         // Weapon is at current penalty level
-        // Merge weapon (target) + first non-weapon at curPenalty (sacrifice)
         let sacrificeIdx = begin;
         if (w === begin) sacrificeIdx = begin + 1;
 
@@ -244,12 +274,10 @@ export function calcDifficultyFirst(
         result.label = `步骤${steps.length + 1}结果`;
         steps.push({ target, sacrifice, result, cost });
 
-        // Replace weapon with result, remove sacrifice
         pool[w] = result;
         pool.splice(sacrificeIdx, 1);
       } else {
-        // Weapon is NOT at current penalty level
-        // Merge two items at curPenalty (first = target, second = sacrifice)
+        // Weapon is NOT at current penalty level - merge two books/items
         const target = pool[begin];
         const sacrifice = pool[begin + 1];
         const { result, cost } = preForge(target, sacrifice, isJava, ignorePenalty);
@@ -257,20 +285,19 @@ export function calcDifficultyFirst(
         result.label = `步骤${steps.length + 1}结果`;
         steps.push({ target, sacrifice, result, cost });
 
-        // Replace second item with result, remove first
         pool[begin + 1] = result;
         pool.splice(begin, 1);
       }
     } else {
-      // Mode 1: merge remaining items, weapon always as target
+      // Mode 1: merge first two sorted items; weapon as target only when at pos 0 or 1
       const w = findWeaponIndex(pool);
       let targetIdx: number, sacrificeIdx: number;
 
-      if (w !== -1) {
-        targetIdx = w;
-        sacrificeIdx = w === 0 ? 1 : 0;
+      if (w === 1) {
+        targetIdx = 1; // weapon at position 1
+        sacrificeIdx = 0;
       } else {
-        targetIdx = 0;
+        targetIdx = 0; // weapon at 0 or elsewhere
         sacrificeIdx = 1;
       }
 
@@ -281,15 +308,13 @@ export function calcDifficultyFirst(
       result.label = `步骤${steps.length + 1}结果`;
       steps.push({ target, sacrifice, result, cost });
 
-      // Keep result at lower index, remove higher index
-      const minIdx = Math.min(targetIdx, sacrificeIdx);
-      const maxIdx = Math.max(targetIdx, sacrificeIdx);
-      pool[minIdx] = result;
-      pool.splice(maxIdx, 1);
+      // Always replace at position 0 and remove position 1 (matching reference)
+      pool[0] = result;
+      pool.splice(1, 1);
 
       // Check if any penalty level has 2+ items to switch back to mode 0
       const maxPen = pool.length > 0 ? Math.max(...pool.map(p => p.penalty)) : 0;
-      for (let i = 0; i <= maxPen; i++) {
+      for (let i = 0; i < maxPen; i++) {
         const range = penaltyRange(pool, i);
         if (range.begin !== -1 && range.end - range.begin > 0) {
           curPenalty = i;
@@ -301,15 +326,15 @@ export function calcDifficultyFirst(
   }
 
   const totalCost = steps.reduce((sum, s) => sum + s.cost, 0);
-  return { steps, totalCost };
+  return { steps, totalCost, tooExpensive: checkTooExpensive(steps, isJava) };
 }
 
 /**
- * Hamming algorithm - binary tree merge
+ * Hamming algorithm - reference: Dinosaur-MC/BestEnchSeq
  *
- * Arranges items in a sequence (weapon first, then books by cost descending)
- * and merges them pairwise bottom-up in a binary tree structure.
- * The weapon at position 0 ensures it is always the target (left side).
+ * Uses penalty-level grouping and Hamming weight arrangement for optimal
+ * binary tree merge order. Higher-cost items are placed at lower Hamming
+ * weight positions so they get merged at optimal points in the tree.
  */
 export function calcHamming(
   weapon: Item,
@@ -322,32 +347,106 @@ export function calcHamming(
   const steps: ForgeStep[] = [];
 
   if (pool.length <= 1) {
-    return { steps, totalCost: 0 };
+    return { steps, totalCost: 0, tooExpensive: false };
   }
 
-  // Weapon stays first; sort books by sacrifice cost descending
-  const weaponItem = pool[0];
-  const books = pool.slice(1).sort((a, b) => calcSacrificeCost(b) - calcSacrificeCost(a));
-  let currentLevel = [weaponItem, ...books];
+  // Phase 1+2: Build merge structure grouped by penalty level
+  let mP = 0;
+  for (const item of pool) mP = Math.max(mP, item.penalty);
 
-  while (currentLevel.length > 1) {
-    const nextLevel: Item[] = [];
-    for (let i = 0; i < currentLevel.length; i += 2) {
-      if (i + 1 < currentLevel.length) {
-        const target = currentLevel[i];
-        const sacrifice = currentLevel[i + 1];
-        const { result, cost } = preForge(target, sacrifice, isJava, ignorePenalty);
-        result.id = newItemId();
-        result.label = `步骤${steps.length + 1}结果`;
-        steps.push({ target, sacrifice, result, cost });
-        nextLevel.push(result);
-      } else {
-        nextLevel.push(currentLevel[i]);
+  // tmTriangle: working copy for simulation; triangle: arranged items for recording steps
+  const tmTriangle: Item[][] = Array.from({ length: mP + 1 }, () => []);
+  for (const item of pool) tmTriangle[item.penalty].push(item);
+
+  const triangle: Item[][] = [];
+
+  for (let i = 0; i < tmTriangle.length; i++) {
+    // Ensure triangle has level i
+    while (i > triangle.length - 1) triangle.push([]);
+
+    const n = tmTriangle[i].length;
+    if (n === 0) continue;
+
+    // Sort by sacrifice cost descending
+    tmTriangle[i].sort((a, b) => calcSacrificeCost(b) - calcSacrificeCost(a));
+
+    // Create arranged array
+    triangle[i] = new Array<Item | null>(n).fill(null) as unknown as Item[];
+
+    // Place weapon (non-book) at position 0
+    const wIdx = tmTriangle[i].findIndex(it => !it.isBook);
+    if (wIdx !== -1) {
+      triangle[i][0] = tmTriangle[i].splice(wIdx, 1)[0];
+    }
+
+    // Place remaining items by Hamming weight order
+    for (let hw = 1; hw < n; hw++) {
+      const positions: number[] = [];
+      for (let pos = 0; pos < n; pos++) {
+        if (hammingWeight(pos) === hw) positions.push(pos);
+      }
+      if (positions.length === 0) break;
+      for (const pos of positions) {
+        if (tmTriangle[i].length === 0) break;
+        if (triangle[i][pos] === null) {
+          triangle[i][pos] = tmTriangle[i].shift()!;
+        }
       }
     }
-    currentLevel = nextLevel;
+
+    // Fill any remaining nulls
+    for (let pos = 0; pos < n; pos++) {
+      if (triangle[i][pos] === null && tmTriangle[i].length > 0) {
+        triangle[i][pos] = tmTriangle[i].shift()!;
+      }
+    }
+
+    // Copy arranged items back to working array
+    tmTriangle[i] = [...triangle[i]];
+
+    if (tmTriangle[i].length < 2) continue;
+
+    // Phase 2: Merge pairs within this level (simulation)
+    while (tmTriangle[i].length > 1) {
+      const a = tmTriangle[i].shift()!;
+      const b = tmTriangle[i].shift()!;
+      const merged = forgeOnly(a, b, isJava);
+      merged.id = newItemId();
+
+      // Extend arrays if needed
+      while (merged.penalty > tmTriangle.length - 1 || i + 1 > tmTriangle.length - 1) {
+        tmTriangle.push([]);
+      }
+
+      if (!merged.isBook) {
+        tmTriangle[i + 1].push(merged);
+      } else {
+        tmTriangle[merged.penalty].push(merged);
+      }
+    }
+
+    // Carry odd item to next level
+    if (tmTriangle[i].length > 0) {
+      while (i >= tmTriangle.length - 1) tmTriangle.push([]);
+      tmTriangle[i + 1].push(tmTriangle[i].shift()!);
+    }
+  }
+
+  // Phase 3: Record forge steps from the arranged triangle
+  for (let i = 0; i < triangle.length; i++) {
+    while (triangle[i].length > 1) {
+      const a = triangle[i].shift()!;
+      const b = triangle[i].shift()!;
+      const { result, cost } = preForge(a, b, isJava, ignorePenalty);
+      result.id = newItemId();
+      result.label = `步骤${steps.length + 1}结果`;
+      steps.push({ target: a, sacrifice: b, result, cost });
+    }
+    if (triangle[i].length === 1 && i + 1 < triangle.length) {
+      triangle[i + 1].push(triangle[i].shift()!);
+    }
   }
 
   const totalCost = steps.reduce((sum, s) => sum + s.cost, 0);
-  return { steps, totalCost };
+  return { steps, totalCost, tooExpensive: checkTooExpensive(steps, isJava) };
 }

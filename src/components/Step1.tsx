@@ -5,7 +5,7 @@ import { getEnchantmentsForWeapon } from '../data/enchantments';
 import type { Enchantment } from '../data/enchantments';
 import type { EnchantLevel } from '../core/calculator';
 import { toRoman } from '../utils/roman';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type React from 'react';
 
 const { Text } = Typography;
@@ -20,6 +20,8 @@ export default function Step1({ appState, onNext }: Props) {
   const [weaponIndex, setWeaponIndex] = useState<number>(appState.weaponIndex);
   const [initialEnchantments, setInitialEnchantments] = useState<EnchantLevel[]>(appState.initialEnchantments);
   const [initialPenalty, setInitialPenalty] = useState<number>(appState.initialPenalty);
+  const [savedLevels, setSavedLevels] = useState<Record<string, number>>({});
+  const inputMouseDown = useRef(false);
 
   const availableEnchantments = getEnchantmentsForWeapon(weaponIndex, edition === 0 ? 0 : 1);
 
@@ -32,8 +34,13 @@ export default function Step1({ appState, onNext }: Props) {
 
   function toggleEnchant(ench: Enchantment, checked: boolean) {
     if (checked) {
-      setInitialEnchantments(prev => [...prev, { enchantmentId: ench.id, level: 1 }]);
+      const level = savedLevels[ench.id] ?? 1;
+      setInitialEnchantments(prev => [...prev, { enchantmentId: ench.id, level }]);
     } else {
+      const current = initialEnchantments.find(e => e.enchantmentId === ench.id);
+      if (current) {
+        setSavedLevels(prev => ({ ...prev, [ench.id]: current.level }));
+      }
       setInitialEnchantments(prev => prev.filter(e => e.enchantmentId !== ench.id));
     }
   }
@@ -76,6 +83,11 @@ export default function Step1({ appState, onNext }: Props) {
             value={sel.level}
             size="small"
             onClick={e => e.stopPropagation()}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              inputMouseDown.current = true;
+              setTimeout(() => { inputMouseDown.current = false; }, 300);
+            }}
             onChange={val => setLevel(record.id, val ?? 1)}
           />
         );
@@ -124,7 +136,7 @@ export default function Step1({ appState, onNext }: Props) {
           />
         </Form.Item>
 
-        <Form.Item label="武器已有的附魔（可选）">
+        <Form.Item label="装备已有的附魔（可选）">
           <Table
             dataSource={availableEnchantments}
             columns={columns}
@@ -134,6 +146,7 @@ export default function Step1({ appState, onNext }: Props) {
             scroll={{ y: 300 }}
             onRow={(record) => ({
               onClick: (e: React.MouseEvent) => {
+                if (inputMouseDown.current) return;
                 if ((e.target as HTMLElement).closest('.ant-input-number')) return;
                 const selected = initialEnchantments.some(ie => ie.enchantmentId === record.id);
                 toggleEnchant(record, !selected);
