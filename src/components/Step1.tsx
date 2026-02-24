@@ -102,7 +102,7 @@ export default function Step1({ appState, onNext }: Props) {
             style={{ width: 200 }}
             options={WEAPONS.map(w => ({
               value: w.index,
-              label: `${w.nameZh} (${w.nameEn})`,
+              label: `${w.icon} ${w.nameZh} (${w.nameEn})`,
             }))}
           />
         </Form.Item>

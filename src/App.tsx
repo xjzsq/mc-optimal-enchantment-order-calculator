@@ -94,7 +94,7 @@ export default function App() {
           />
         )}
         {current === 2 && result && (
-          <Step3 result={result} appState={appState} onReset={handleReset} />
+          <Step3 result={result} appState={appState} onReset={handleReset} onBack={() => setCurrent(1)} />
         )}
       </Card>
     </div>

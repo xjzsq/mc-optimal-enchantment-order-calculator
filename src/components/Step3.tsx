@@ -9,6 +9,7 @@ interface Props {
   result: CalcResult;
   appState: AppState;
   onReset: () => void;
+  onBack: () => void;
 }
 
 function EnchantTag({ el }: { el: EnchantLevel }) {
@@ -42,12 +43,13 @@ function ItemDisplay({ item, label }: { item: ForgeStep['target']; label: string
   );
 }
 
-export default function Step3({ result, appState, onReset }: Props) {
+export default function Step3({ result, appState, onReset, onBack }: Props) {
   if (result.steps.length === 0) {
     return (
       <div>
         <Alert message="没有需要附魔的步骤。" type="info" />
         <div className="step-footer">
+          <Button onClick={onBack}>上一步</Button>
           <Button onClick={onReset}>重新开始</Button>
         </div>
       </div>
@@ -104,6 +106,7 @@ export default function Step3({ result, appState, onReset }: Props) {
       </Card>
 
       <div className="step-footer">
+        <Button onClick={onBack}>上一步</Button>
         <Button type="primary" onClick={onReset}>重新开始</Button>
       </div>
     </div>

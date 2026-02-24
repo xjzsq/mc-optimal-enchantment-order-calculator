@@ -19,11 +19,16 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
   const [ignorePenalty, setIgnorePenalty] = useState(appState.ignorePenalty);
   const [ignoreRepairing, setIgnoreRepairing] = useState(appState.ignoreRepairing);
 
-  const availableEnchantments = getEnchantmentsForWeapon(appState.weaponIndex, appState.edition === 0 ? 0 : 1);
+  const availableEnchantments = getEnchantmentsForWeapon(appState.weaponIndex, appState.edition === 0 ? 0 : 1)
+    .filter(e => {
+      // Hide enchantments already at max level on the weapon
+      const initial = appState.initialEnchantments.find(ie => ie.enchantmentId === e.id);
+      return !(initial && initial.level >= e.maxLevel);
+    });
 
   function toggleEnchant(ench: Enchantment, checked: boolean) {
     if (checked) {
-      setTargetEnchantments(prev => [...prev, { enchantmentId: ench.id, level: 1 }]);
+      setTargetEnchantments(prev => [...prev, { enchantmentId: ench.id, level: ench.maxLevel }]);
     } else {
       setTargetEnchantments(prev => prev.filter(e => e.enchantmentId !== ench.id));
     }
