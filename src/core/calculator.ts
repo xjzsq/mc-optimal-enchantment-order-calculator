@@ -207,8 +207,8 @@ function penaltyRange(pool: Item[], penalty: number): { begin: number; end: numb
 function hammingWeight(n: number): number {
   let count = 0;
   while (n > 0) {
-    if (n % 2 === 1) count++;
-    n = Math.floor(n / 2);
+    count += n & 1;
+    n >>= 1;
   }
   return count;
 }
@@ -371,12 +371,12 @@ export function calcHamming(
     tmTriangle[i].sort((a, b) => calcSacrificeCost(b) - calcSacrificeCost(a));
 
     // Create arranged array
-    triangle[i] = new Array<Item | null>(n).fill(null) as unknown as Item[];
+    const arranged: (Item | null)[] = new Array(n).fill(null);
 
     // Place weapon (non-book) at position 0
     const wIdx = tmTriangle[i].findIndex(it => !it.isBook);
     if (wIdx !== -1) {
-      triangle[i][0] = tmTriangle[i].splice(wIdx, 1)[0];
+      arranged[0] = tmTriangle[i].splice(wIdx, 1)[0];
     }
 
     // Place remaining items by Hamming weight order
@@ -388,18 +388,21 @@ export function calcHamming(
       if (positions.length === 0) break;
       for (const pos of positions) {
         if (tmTriangle[i].length === 0) break;
-        if (triangle[i][pos] === null) {
-          triangle[i][pos] = tmTriangle[i].shift()!;
+        if (arranged[pos] === null) {
+          arranged[pos] = tmTriangle[i].shift()!;
         }
       }
     }
 
     // Fill any remaining nulls
     for (let pos = 0; pos < n; pos++) {
-      if (triangle[i][pos] === null && tmTriangle[i].length > 0) {
-        triangle[i][pos] = tmTriangle[i].shift()!;
+      if (arranged[pos] === null && tmTriangle[i].length > 0) {
+        arranged[pos] = tmTriangle[i].shift()!;
       }
     }
+
+    // Finalize arranged items (all nulls should be filled)
+    triangle[i] = arranged.filter((item): item is Item => item !== null);
 
     // Copy arranged items back to working array
     tmTriangle[i] = [...triangle[i]];
