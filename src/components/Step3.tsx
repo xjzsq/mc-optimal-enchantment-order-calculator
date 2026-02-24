@@ -112,7 +112,7 @@ export default function Step3({ result, appState, onReset, onBack }: Props) {
           {result.calcTimeMs != null && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <Text>计算用时:</Text>
-              <Text>{result.calcTimeMs < 1 ? '<1' : result.calcTimeMs.toFixed(1)} ms</Text>
+              <Text>{result.calcTimeMs.toFixed(1)} ms</Text>
             </div>
           )}
         </Space>

@@ -135,16 +135,18 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
             size="small"
             pagination={false}
             scroll={{ y: 300 }}
-            onRow={(record) => ({
-              onClick: () => {
-                const selected = targetEnchantments.some(e => e.enchantmentId === record.id);
-                const conflicted = !selected && isConflicted(record);
-                if (!conflicted) {
-                  toggleEnchant(record, !selected);
-                }
-              },
-              style: { cursor: isConflicted(record) && !targetEnchantments.some(e => e.enchantmentId === record.id) ? 'not-allowed' : 'pointer' },
-            })}
+            onRow={(record) => {
+              const selected = targetEnchantments.some(e => e.enchantmentId === record.id);
+              const conflicted = !selected && isConflicted(record);
+              return {
+                onClick: () => {
+                  if (!conflicted) {
+                    toggleEnchant(record, !selected);
+                  }
+                },
+                style: { cursor: conflicted ? 'not-allowed' : 'pointer' },
+              };
+            }}
           />
         </Form.Item>
       </Form>
