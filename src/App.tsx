@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Steps, Card, Typography } from 'antd';
+import { Steps, Card, Typography, Layout } from 'antd';
 import Step1 from './components/Step1';
 import Step2 from './components/Step2';
 import Step3 from './components/Step3';
@@ -92,34 +92,36 @@ export default function App() {
   ];
 
   return (
-    <div className="app-container">
-      <Title level={2} style={{ textAlign: 'center', margin: '24px 0' }}>
-        最佳附魔顺序计算器
-      </Title>
-      <Card style={{ maxWidth: 900, margin: '0 auto', padding: '24px' }}>
-        <Steps current={current} items={steps} style={{ marginBottom: 32 }} />
-        {current === 0 && (
-          <Step1 appState={appState} onNext={handleStep1Next} />
-        )}
-        {current === 1 && (
-          <Step2
-            appState={appState}
-            onBack={() => setCurrent(0)}
-            onCalculate={handleStep2Calculate}
-          />
-        )}
-        {current === 2 && result && (
-          <Step3 result={result} appState={appState} onReset={handleReset} onBack={() => setCurrent(1)} />
-        )}
-      </Card>
-      <div className="app-footer">
-        最佳附魔顺序计算器 &copy;2025 Crafted with ❤ by{' '}
+    <Layout className="app-container">
+      <Layout.Content>
+        <Title level={2} style={{ textAlign: 'center', margin: '24px 0' }}>
+          最佳附魔顺序计算器
+        </Title>
+        <Card style={{ maxWidth: 900, margin: '0 auto', padding: '24px' }}>
+          <Steps current={current} items={steps} style={{ marginBottom: 32 }} />
+          {current === 0 && (
+            <Step1 appState={appState} onNext={handleStep1Next} />
+          )}
+          {current === 1 && (
+            <Step2
+              appState={appState}
+              onBack={() => setCurrent(0)}
+              onCalculate={handleStep2Calculate}
+            />
+          )}
+          {current === 2 && result && (
+            <Step3 result={result} appState={appState} onReset={handleReset} onBack={() => setCurrent(1)} />
+          )}
+        </Card>
+      </Layout.Content>
+      <Layout.Footer style={{ textAlign: 'center' }}>
+        最佳附魔顺序计算器 &copy;2026 Crafted with ❤ by{' '}
         <a href="https://xjzsq.cn" target="_blank" rel="noreferrer">xjzsq</a>,
         {' '}Powered by{' '}
         <a href="https://reactjs.org/" target="_blank" rel="noreferrer">React</a>
         {' '}|{' '}
         <a href="https://github.com/xjzsq/best-enchantment-calculator" target="_blank" rel="noreferrer">GitHub</a>
-      </div>
-    </div>
+      </Layout.Footer>
+    </Layout>
   );
 }
