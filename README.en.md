@@ -50,9 +50,10 @@ npm run build
 npm run preview
 ```
 
-## Algorithm Reference
+## Acknowledgements
 
-The Hamming algorithm is inspired by and references the implementation in [Dinosaur-MC/BestEnchSeq](https://github.com/Dinosaur-MC/BestEnchSeq). Many thanks to the original author.
+The design and algorithms of this project were inspired by and adapted from [Dinosaur-MC/BestEnchSeq](https://github.com/Dinosaur-MC/BestEnchSeq). Some issues in the original algorithm have been partially modified. Many thanks to the original author.  
+This project was developed with the assistance of GitHub Copilot (Vibe Coding), supported by the GitHub Student Pack.
 
 ## License
 
