@@ -34,13 +34,18 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
   function toggleEnchant(ench: Enchantment, checked: boolean) {
     if (checked) {
       const level = savedLevels[ench.id] ?? ench.maxLevel;
-      setTargetEnchantments(prev => [...prev, { enchantmentId: ench.id, level }]);
+      setTargetEnchantments(prev => {
+        if (prev.some(e => e.enchantmentId === ench.id)) return prev;
+        return [...prev, { enchantmentId: ench.id, level }];
+      });
     } else {
-      const current = targetEnchantments.find(e => e.enchantmentId === ench.id);
-      if (current) {
-        setSavedLevels(prev => ({ ...prev, [ench.id]: current.level }));
-      }
-      setTargetEnchantments(prev => prev.filter(e => e.enchantmentId !== ench.id));
+      setTargetEnchantments(prev => {
+        const current = prev.find(e => e.enchantmentId === ench.id);
+        if (current) {
+          setSavedLevels(s => ({ ...s, [ench.id]: current.level }));
+        }
+        return prev.filter(e => e.enchantmentId !== ench.id);
+      });
     }
   }
 
@@ -76,6 +81,7 @@ export default function Step2({ appState, onBack, onCalculate }: Props) {
             type="checkbox"
             checked={selected}
             disabled={conflicted}
+            onClick={e => e.stopPropagation()}
             onChange={ev => toggleEnchant(record, ev.target.checked)}
           />
         );

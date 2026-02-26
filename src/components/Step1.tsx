@@ -37,13 +37,18 @@ export default function Step1({ appState, onNext }: Props) {
   function toggleEnchant(ench: Enchantment, checked: boolean) {
     if (checked) {
       const level = savedLevels[ench.id] ?? 1;
-      setInitialEnchantments(prev => [...prev, { enchantmentId: ench.id, level }]);
+      setInitialEnchantments(prev => {
+        if (prev.some(e => e.enchantmentId === ench.id)) return prev;
+        return [...prev, { enchantmentId: ench.id, level }];
+      });
     } else {
-      const current = initialEnchantments.find(e => e.enchantmentId === ench.id);
-      if (current) {
-        setSavedLevels(prev => ({ ...prev, [ench.id]: current.level }));
-      }
-      setInitialEnchantments(prev => prev.filter(e => e.enchantmentId !== ench.id));
+      setInitialEnchantments(prev => {
+        const current = prev.find(e => e.enchantmentId === ench.id);
+        if (current) {
+          setSavedLevels(s => ({ ...s, [ench.id]: current.level }));
+        }
+        return prev.filter(e => e.enchantmentId !== ench.id);
+      });
     }
   }
 
@@ -73,6 +78,7 @@ export default function Step1({ appState, onNext }: Props) {
             type="checkbox"
             checked={selected}
             disabled={conflicted}
+            onClick={e => e.stopPropagation()}
             onChange={ev => toggleEnchant(record, ev.target.checked)}
           />
         );
